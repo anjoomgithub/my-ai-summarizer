@@ -1,0 +1,307 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CogniFlow | AI Summarizer</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --color-bg: #0b0a18;
+            --color-surface: rgba(22, 21, 38, 0.5);
+            --color-border: rgba(132, 129, 178, 0.2);
+            --color-text-primary: #f0f0ff;
+            --color-text-secondary: #a09cc9;
+            --color-accent: #7b61ff;
+            --color-accent-dark: #6a53d9;
+            --font-primary: 'Inter', sans-serif;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--color-bg);
+            color: var(--color-text-primary);
+            font-family: var(--font-primary);
+            min-height: 100vh;
+            position: relative;
+            /* REMOVED 'overflow: hidden' to allow scrolling on mobile devices */
+        }
+
+        body::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background-image:
+                radial-gradient(circle at 15% 25%, #2a2068, transparent 30%),
+                radial-gradient(circle at 85% 35%, #0d2e5e, transparent 40%),
+                radial-gradient(circle at 50% 80%, #4a2050, transparent 40%);
+            filter: blur(100px); opacity: 0.6; animation: move-aurora 20s infinite alternate; z-index: -1;
+        }
+
+        @keyframes move-aurora { from { transform: rotate(0deg) scale(1.2); } to { transform: rotate(360deg) scale(1.5); } }
+
+        .main-container {
+            display: flex; flex-direction: column; 
+            min-height: 100vh; /* CHANGED from 'height' to allow content to grow */
+            padding: 1rem; gap: 1rem; max-width: 1400px; margin: 0 auto;
+        }
+
+        .header { text-align: center; flex-shrink: 0; padding: 1rem 0; }
+        .header h1 { 
+            font-size: clamp(1.5rem, 4vw, 1.75rem); /* Responsive font size */
+            font-weight: 600; 
+        }
+
+        .summarizer-grid {
+            display: grid; grid-template-columns: 1fr; /* Default to single column for mobile */
+            gap: 1rem; flex-grow: 1; min-height: 0;
+        }
+
+        .panel {
+            background: var(--color-surface); border: 1px solid var(--color-border);
+            border-radius: 16px; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            min-height: 400px; /* Set a min-height for panels on mobile */
+        }
+
+        .panel-header, .panel-footer {
+            padding: 0.75rem 1rem; border-bottom: 1px solid var(--color-border);
+            display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;
+        }
+        .panel-footer { border-top: 1px solid var(--color-border); border-bottom: none; }
+        .panel-title { font-size: 0.8rem; font-weight: 600; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 1.5px; }
+        .panel-controls button {
+            background: none; border: 1px solid var(--color-border); color: var(--color-text-secondary);
+            border-radius: 6px; padding: 0.4rem 0.6rem; cursor: pointer; font-size: 0.8rem;
+            transition: all 0.2s ease; display: flex; align-items: center; gap: 0.4rem;
+        }
+        .panel-controls button:hover { background-color: var(--color-border); color: var(--color-text-primary); }
+        .panel-body { padding: 1rem; flex-grow: 1; overflow-y: auto; position: relative; }
+
+        #text_to_summarize { width: 100%; height: 100%; background: transparent; border: none; color: var(--color-text-primary); font-size: 1rem; line-height: 1.7; resize: none; }
+        #text_to_summarize:focus { outline: none; }
+
+        .result-text, .placeholder-text { white-space: pre-wrap; font-size: 1rem; line-height: 1.7; }
+        .panel-footer .stats-group { display: flex; gap: 1rem; font-size: 0.8rem; }
+        
+        .controls-container {
+            background: var(--color-surface); border: 1px solid var(--color-border);
+            border-radius: 12px; padding: 1rem; backdrop-filter: blur(12px);
+            display: flex; flex-direction: column; gap: 1rem; /* Stacks controls on mobile */
+        }
+        .control-group { display: flex; flex-direction: column; gap: 0.5rem; }
+        .control-group label { font-size: 0.9rem; font-weight: 500; color: var(--color-text-secondary); }
+        .toggle-switch { display: flex; background: var(--color-bg); border-radius: 8px; padding: 4px; border: 1px solid var(--color-border); }
+        .toggle-switch input { display: none; }
+        .toggle-switch label {
+            flex: 1; text-align: center; padding: 0.5rem; font-size: 0.85rem;
+            border-radius: 6px; cursor: pointer; color: var(--color-text-secondary);
+            transition: all 0.2s ease;
+        }
+        .toggle-switch input:checked + label {
+            background: var(--color-accent); color: white;
+            box-shadow: 0 2px 10px rgba(123, 97, 255, 0.3);
+        }
+
+        .submit-container { flex-shrink: 0; padding-top: 1rem; }
+        .btn-submit {
+            background: var(--color-accent); color: #ffffff; border: none; border-radius: 8px;
+            padding: 0.8rem 1.5rem; font-weight: 600; font-size: 1rem; cursor: pointer;
+            transition: all 0.2s ease; box-shadow: 0 4px 20px rgba(123, 97, 255, 0.3);
+            display: block; width: 100%; max-width: 300px; margin: 0 auto;
+        }
+        .btn-submit:hover { background: var(--color-accent-dark); transform: translateY(-2px); box-shadow: 0 6px 25px rgba(123, 97, 255, 0.4); }
+
+        .skeleton-loader { height: 100%; }
+        .skeleton-line { height: 1em; background: linear-gradient(90deg, var(--color-border) 25%, rgba(132, 129, 178, 0.3) 50%, var(--color-border) 75%); background-size: 200% 100%; border-radius: 4px; margin-bottom: 0.75rem; animation: shimmer 1.5s infinite linear; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        /* --- Responsive Adjustments --- */
+        @media (min-width: 768px) {
+             .panel { min-height: 500px; }
+             /* Arrange controls side-by-side on tablets and larger */
+             .controls-container { flex-direction: row; align-items: center; justify-content: center; }
+             .control-group { flex-direction: row; align-items: center; gap: 0.75rem;}
+        }
+        @media (min-width: 1024px) {
+            /* Switch to two-column grid on desktops */
+            .summarizer-grid { grid-template-columns: 1fr 1fr; }
+            .panel { min-height: unset; /* Let grid height define panel height */ }
+        }
+    </style>
+</head>
+<body>
+
+<main class="main-container">
+    <header class="header">
+        <h1>CogniFlow AI</h1>
+    </header>
+
+    <div class="summarizer-grid">
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">Source</div>
+                <div class="panel-controls"><button type="button" id="clear-btn">Clear</button></div>
+            </div>
+            <div class="panel-body">
+                <textarea id="text_to_summarize" name="text_to_summarize" placeholder="Begin by pasting your source text here..."></textarea>
+            </div>
+            <div class="panel-footer">
+                <div class="stats-group" id="source-stats">
+                    <div>0 Chars</div><div>0 Words</div><div>0 min read</div>
+                </div>
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">Summary</div>
+                <div class="panel-controls"><button type="button" id="copy-btn" style="display: none;">Copy</button></div>
+            </div>
+            <div class="panel-body" id="output-body">
+                 <div class="placeholder-text">Your summary will appear here.</div>
+            </div>
+            <div class="panel-footer">
+                <div class="stats-group" id="summary-stats"></div>
+            </div>
+        </div>
+    </div>
+
+    <form id="summarize-form" method="post">
+        {% csrf_token %}
+        <input type="hidden" id="hidden-text-input" name="text_to_summarize">
+
+        <div class="controls-container">
+            <div class="control-group">
+                <label>Length:</label>
+                <div class="toggle-switch">
+                    <input type="radio" id="len-short" name="summary_length" value="short">
+                    <label for="len-short">Short</label>
+                    <input type="radio" id="len-default" name="summary_length" value="default" checked>
+                    <label for="len-default">Default</label>
+                    <input type="radio" id="len-detailed" name="summary_length" value="detailed">
+                    <label for="len-detailed">Detailed</label>
+                </div>
+            </div>
+            <div class="control-group">
+                <label>Format:</label>
+                <div class="toggle-switch">
+                    <input type="radio" id="fmt-para" name="output_format" value="a paragraph" checked>
+                    <label for="fmt-para">Paragraph</label>
+                    <input type="radio" id="fmt-bullet" name="output_format" value="bullet points">
+                    <label for="fmt-bullet">Bullets</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="submit-container">
+            <button type="submit" class="btn-submit" id="submit-btn">Summarize</button>
+        </div>
+    </form>
+</main>
+
+<script>
+// The JavaScript does not need any changes for responsiveness.
+// It is copied here verbatim for completeness.
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('summarize-form');
+    const sourceTextArea = document.getElementById('text_to_summarize');
+    const hiddenInput = document.getElementById('hidden-text-input');
+    const submitBtn = document.getElementById('submit-btn');
+    const outputBody = document.getElementById('output-body');
+    const copyBtn = document.getElementById('copy-btn');
+    const clearBtn = document.getElementById('clear-btn');
+    const sourceStatsEl = document.getElementById('source-stats');
+    const summaryStatsEl = document.getElementById('summary-stats');
+    
+    const placeholderHTML = `<div class="placeholder-text">Your summary will appear here.</div>`;
+    const loaderHTML = `<div class="skeleton-loader"><div class="skeleton-line"></div><div class="skeleton-line w-90"></div><div class="skeleton-line w-50"></div></div>`;
+    let summaryTextContent = '';
+
+    const calculateStats = (text) => {
+        const chars = text.length;
+        const words = text.trim().split(/\s+/).filter(Boolean).length;
+        const readTime = Math.ceil(words / 200);
+        return { chars, words, readTime };
+    };
+
+    const updateStats = (element, text) => {
+        const stats = calculateStats(text);
+        element.innerHTML = `<div>${stats.chars} Chars</div><div>${stats.words} Words</div><div>${stats.readTime} min read</div>`;
+    };
+
+    const typeWriterEffect = (text, element) => {
+        element.innerHTML = '';
+        summaryTextContent = text;
+        const words = text.split(' ');
+        let i = 0;
+        function type() {
+            if (i < words.length) {
+                element.innerHTML += words[i] + ' ';
+                i++;
+                setTimeout(type, 30);
+            } else {
+                updateStats(summaryStatsEl, text);
+            }
+        }
+        type();
+    };
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const sourceText = sourceTextArea.value.trim();
+        if (!sourceText) { alert("Please enter some text to summarize."); return; }
+        
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Summerizing...';
+        outputBody.innerHTML = loaderHTML;
+        copyBtn.style.display = 'none';
+        summaryStatsEl.innerHTML = '';
+
+        hiddenInput.value = sourceText;
+        const formData = new FormData(form);
+        
+        try {
+            const response = await fetch(window.location.href, {
+                method: 'POST', body: formData,
+            });
+            const data = await response.json();
+            if (data.error) throw new Error(data.error);
+            
+            const resultWrapper = document.createElement('div');
+            resultWrapper.className = 'result-text';
+            outputBody.innerHTML = '';
+            outputBody.appendChild(resultWrapper);
+            
+            typeWriterEffect(data.summarized_text, resultWrapper);
+            copyBtn.style.display = 'flex';
+        } catch (error) {
+            outputBody.innerHTML = `<div class="placeholder-text" style="color: #ffb8c0;">Error: ${error.message}</div>`;
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Summerize';
+        }
+    });
+
+    sourceTextArea.addEventListener('input', () => updateStats(sourceStatsEl, sourceTextArea.value));
+    clearBtn.addEventListener('click', () => {
+        sourceTextArea.value = '';
+        updateStats(sourceStatsEl, '');
+    });
+    copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(summaryTextContent).then(() => {
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
+        });
+    });
+    
+    updateStats(sourceStatsEl, sourceTextArea.value);
+});
+</script>
+
+</body>
+</html>
+```

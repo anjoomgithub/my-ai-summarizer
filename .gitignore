@@ -1,0 +1,15 @@
+# Virtual Environment
+venv/
+
+# Environment variables
+.env
+
+# Django stuff
+*.log
+*.pot
+*.pyc
+__pycache__/
+db.sqlite3
+
+# IDE files
+.idea/
